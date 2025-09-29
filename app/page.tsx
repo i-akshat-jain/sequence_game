@@ -1,11 +1,15 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import GameBoard from '../components/GameBoard';
 import CardHand from '../components/CardHand';
 import GameControls from '../components/GameControls';
+import GameLobby from '../components/GameLobby';
+import WinCelebration from '../components/WinCelebration';
+import StableHydration from '../components/StableHydration';
 import NoSSR from '../components/NoSSR';
 import { useGameStore } from '../hooks/useGameState';
+import { useSocket } from '../hooks/useSocket';
 import { BoardPosition } from '../types/game';
 
 export default function Home() {
@@ -18,8 +22,13 @@ export default function Home() {
     possibleMoves,
     currentPlayer,
     gamePhase,
-    initializeStore
+    initializeStore,
+    winner
   } = useGameStore();
+
+  const { currentRoom, sendGameAction } = useSocket();
+  const [showWinCelebration, setShowWinCelebration] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
 
   const handlePositionClick = (position: BoardPosition) => {
     if (gamePhase !== 'playing') return;
@@ -37,6 +46,15 @@ export default function Home() {
         // Auto-play the card if both card and position are selected
         if (selectedCard && position) {
           playCard(selectedCard, position);
+          
+          // Send game action to other players
+          if (currentRoom) {
+            sendGameAction(currentRoom.id, {
+              type: 'play_card',
+              card: selectedCard,
+              position: position
+            });
+          }
         }
       } else {
         // Just select the position for visual feedback
@@ -53,12 +71,38 @@ export default function Home() {
     initializeStore();
   }, [initializeStore]);
 
+  // Handle win celebration
+  useEffect(() => {
+    if (winner && !showWinCelebration) {
+      setShowWinCelebration(true);
+    }
+  }, [winner, showWinCelebration]);
+
+  // Handle game start
+  const handleGameStart = (roomId: string) => {
+    setGameStarted(true);
+  };
+
+  // Check if it's the current player's turn
+  const { socket } = useSocket();
+  const isMyTurn = currentRoom?.gameState?.currentPlayer === currentRoom?.players.find(p => p.id === socket?.id)?.id;
+
   return (
+    <StableHydration>
+      {/* Show lobby if not in a room or game hasn't started */}
+      {!currentRoom || !gameStarted ? (
+        <GameLobby onGameStart={handleGameStart} />
+      ) : (
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="container mx-auto px-4">
-        <h1 className="text-4xl font-bold text-center text-gray-800 mb-8">
-          Sequence Game
-        </h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-gray-800">
+            Sequence Game - Room {currentRoom.id}
+          </h1>
+          <div className="text-sm text-gray-600">
+            {currentRoom.players.length} players online
+          </div>
+        </div>
         
         <div className="max-w-6xl mx-auto">
           <NoSSR fallback={<div className="text-center py-8">Loading game...</div>}>
@@ -67,16 +111,37 @@ export default function Home() {
               <GameControls />
             </div>
 
+            {/* Turn Indicator */}
+            {currentRoom.gameState?.gamePhase === 'playing' && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-center">
+                  <span className="text-lg font-semibold">
+                    Current Turn: {currentRoom.players.find(p => p.id === currentRoom.gameState?.currentPlayer)?.name}
+                  </span>
+                  {!isMyTurn && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Wait for your turn to play
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Game Board */}
             <div className="mb-8">
               <GameBoard onPositionClick={handlePositionClick} />
             </div>
 
             {/* Player Hands */}
-            {gamePhase === 'playing' && (
+            {currentRoom.gameState?.gamePhase === 'playing' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {players.map((player) => (
-                  <CardHand key={player.id} playerId={player.id} />
+                {currentRoom.gameState.players.map((player: any) => (
+                  <CardHand 
+                    key={player.id} 
+                    playerId={player.id}
+                    isMyTurn={isMyTurn}
+                    isCurrentPlayer={player.id === currentRoom.gameState?.currentPlayer}
+                  />
                 ))}
               </div>
             )}
@@ -84,7 +149,7 @@ export default function Home() {
 
           {/* Game Instructions */}
           <NoSSR>
-            {gamePhase === 'setup' && (
+            {currentRoom.gameState?.gamePhase === 'setup' && (
               <div className="bg-white p-6 rounded-lg shadow-md mt-8">
                 <h2 className="text-2xl font-bold mb-4">How to Play Sequence</h2>
                 <div className="space-y-4 text-gray-700">
@@ -114,6 +179,16 @@ export default function Home() {
           </NoSSR>
         </div>
       </div>
-    </div>
+
+        {/* Win Celebration Modal */}
+        {showWinCelebration && winner && (
+          <WinCelebration
+            winningTeam={winner}
+            onClose={() => setShowWinCelebration(false)}
+          />
+        )}
+      </div>
+      )}
+    </StableHydration>
   );
 }

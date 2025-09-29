@@ -24,9 +24,50 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Cleanup browser extensions before React loads
+              (function() {
+                'use strict';
+                function cleanupExtensions() {
+                  try {
+                    const body = document.body;
+                    if (!body) return;
+                    
+                    const attributesToRemove = [];
+                    for (let i = 0; i < body.attributes.length; i++) {
+                      const attr = body.attributes[i];
+                      if (attr.name.includes('__processed_') ||
+                          attr.name.includes('bis_') ||
+                          attr.name.includes('extension') ||
+                          attr.name.includes('ultimate-toolbar')) {
+                        attributesToRemove.push(attr.name);
+                      }
+                    }
+                    
+                    attributesToRemove.forEach(attrName => {
+                      body.removeAttribute(attrName);
+                    });
+                  } catch (e) {
+                    // Ignore cleanup errors
+                  }
+                }
+                
+                // Run cleanup when DOM is ready
+                if (document.readyState === 'loading') {
+                  document.addEventListener('DOMContentLoaded', cleanupExtensions);
+                } else {
+                  cleanupExtensions();
+                }
+              })();
+            `
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        suppressHydrationWarning={true}
       >
         {children}
       </body>

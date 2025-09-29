@@ -6,15 +6,15 @@ import { useGameStore } from '../hooks/useGameState';
 
 interface CardHandProps {
   playerId: string;
+  isMyTurn?: boolean;
+  isCurrentPlayer?: boolean;
 }
 
-const CardHand: React.FC<CardHandProps> = ({ playerId }) => {
+const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurrentPlayer = false }) => {
   const { players, selectedCard, selectCard, currentPlayer } = useGameStore();
   
   const player = players.find(p => p.id === playerId);
   if (!player) return null;
-
-  const isCurrentPlayer = playerId === currentPlayer;
 
   const getCardDisplay = (card: Card) => {
     if (card.isJoker) {
@@ -37,25 +37,25 @@ const CardHand: React.FC<CardHandProps> = ({ playerId }) => {
   };
 
   const getCardClass = (card: Card) => {
-    const baseClass = "w-16 h-20 border-2 rounded-lg flex flex-col items-center justify-center text-sm font-bold cursor-pointer transition-all duration-200 shadow-sm";
+    const baseClass = "w-16 h-20 border-2 rounded-lg flex flex-col items-center justify-center text-sm font-bold transition-all duration-200 shadow-sm";
     const isSelected = selectedCard?.id === card.id;
-    const isPlayable = isCurrentPlayer;
+    const isPlayable = isMyTurn && isCurrentPlayer;
     
     let additionalClass = "";
     
     if (isSelected) {
       additionalClass = "border-yellow-500 bg-yellow-100 transform scale-105";
     } else if (isPlayable) {
-      additionalClass = "border-gray-400 bg-white hover:border-blue-400 hover:bg-blue-50 hover:scale-105";
+      additionalClass = "border-gray-400 bg-white hover:border-blue-400 hover:bg-blue-50 hover:scale-105 cursor-pointer";
     } else {
-      additionalClass = "border-gray-300 bg-gray-100 opacity-60";
+      additionalClass = "border-gray-300 bg-gray-100 opacity-60 cursor-not-allowed";
     }
     
     return `${baseClass} ${additionalClass}`;
   };
 
   const handleCardClick = (card: Card) => {
-    if (isCurrentPlayer) {
+    if (isMyTurn && isCurrentPlayer) {
       selectCard(selectedCard?.id === card.id ? null : card);
     }
   };
@@ -64,7 +64,12 @@ const CardHand: React.FC<CardHandProps> = ({ playerId }) => {
     <div className="bg-gray-50 p-4 rounded-lg">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800">
-          {player.name} {isCurrentPlayer && '(Your Turn)'}
+          {player.name} 
+          {isCurrentPlayer && (
+            <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+              {isMyTurn ? 'Your Turn' : 'Current Turn'}
+            </span>
+          )}
         </h3>
         <div className="text-sm text-gray-600">
           {player.hand.length} cards
