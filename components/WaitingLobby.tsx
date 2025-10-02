@@ -39,6 +39,11 @@ const WaitingLobby: React.FC<WaitingLobbyProps> = ({
 
   // Handle start game
   const handleStartGame = () => {
+    console.log('🚀 Start game button clicked!');
+    console.log('🚀 Socket:', !!socket);
+    console.log('🚀 Room ID:', roomId);
+    console.log('🚀 Is admin:', isAdmin);
+    
     if (socket && roomId) {
       // Use default settings since WaitingLobby doesn't have access to game settings
       const defaultSettings = {
@@ -46,14 +51,18 @@ const WaitingLobby: React.FC<WaitingLobbyProps> = ({
         turnTimeLimit: 60,
         gameMode: 'classic'
       };
+      console.log('🚀 Emitting start-game event:', { roomId, settings: defaultSettings });
       socket.emit('start-game', { roomId, settings: defaultSettings });
+    } else {
+      console.log('❌ Cannot start game - missing socket or roomId');
     }
   };
 
   // Listen for game started
   useEffect(() => {
     if (socket) {
-      const handleGameStarted = () => {
+      const handleGameStarted = (data: any) => {
+        console.log('🎉 Game started event received:', data);
         onGameStart();
       };
 

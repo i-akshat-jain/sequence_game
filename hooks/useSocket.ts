@@ -142,7 +142,7 @@ export function useSocket(): UseSocketReturn {
     });
 
     newSocket.on('game-started', (data) => {
-      console.log('Game started:', data);
+      console.log('🎉 Game started event received in useSocket:', data);
       setCurrentRoom(prev => {
         if (!prev) return null;
         return { ...prev, gameState: data.gameState };

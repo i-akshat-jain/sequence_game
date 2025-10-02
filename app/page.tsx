@@ -213,6 +213,14 @@ export default function Home() {
     }
   }, [gameStarted, currentRoom, initializeStore]);
 
+  // Auto-set gameStarted when game actually starts on server
+  useEffect(() => {
+    if (currentRoom?.gameState?.gamePhase === 'playing' && !gameStarted) {
+      console.log('Game started on server, setting gameStarted to true');
+      setGameStarted(true);
+    }
+  }, [currentRoom?.gameState?.gamePhase, gameStarted]);
+
   const handlePositionClick = (position: BoardPosition) => {
     if (gamePhase !== 'playing') return;
     
@@ -328,13 +336,18 @@ export default function Home() {
     );
   }
 
+  // Check if game has actually started based on game state
+  const isGameActuallyStarted = currentRoom?.gameState?.gamePhase === 'playing';
+  
   console.log('Page.tsx - Render decision:', {
     currentRoom: !!currentRoom,
     gameStarted,
+    isGameActuallyStarted,
+    gamePhase: currentRoom?.gameState?.gamePhase,
     showNamePrompt,
     pendingRoomId,
     isJoiningRoom,
-    shouldShowGameLobby: !currentRoom || !gameStarted
+    shouldShowGameLobby: !currentRoom || !isGameActuallyStarted
   });
 
   return (
@@ -350,7 +363,7 @@ export default function Home() {
       )}
       
       {/* Show lobby if not in a room or game hasn't started */}
-      {!currentRoom || !gameStarted ? (
+      {!currentRoom || !isGameActuallyStarted ? (
         <GameLobby 
           onGameStart={handleGameStart}
           currentRoom={currentRoom}
