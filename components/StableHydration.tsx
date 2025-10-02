@@ -10,10 +10,10 @@ interface StableHydrationProps {
 export default function StableHydration({ 
   children, 
   fallback = (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading game...</p>
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-500 mx-auto mb-6"></div>
+        <p className="text-gray-600 text-lg font-medium">Loading game...</p>
       </div>
     </div>
   )
@@ -34,24 +34,35 @@ export default function StableHydration({
         const body = document.body;
         if (!body) return false;
 
-        // Check for extension attributes
+        // Check for extension attributes on body and documentElement
         const hasExtensionAttrs = Array.from(body.attributes).some(attr => 
+          attr.name.includes('__processed_') ||
+          attr.name.includes('bis_') ||
+          attr.name.includes('extension') ||
+          attr.name.includes('ultimate-toolbar')
+        ) || Array.from(document.documentElement.attributes).some(attr => 
           attr.name.includes('__processed_') ||
           attr.name.includes('bis_') ||
           attr.name.includes('extension') ||
           attr.name.includes('ultimate-toolbar')
         );
 
-        // Check for extension elements
+        // Check for extension elements (including Ultimate Toolbar GPT)
         const hasExtensionElements = document.querySelectorAll(`
           [id*="ultimate-toolbar"],
+          [id*="ultimate-toolbar-gpt"],
           [id*="bis_"],
           [class*="ul-sticky-container"],
+          [class*="react-draggable"],
           [data-extension],
-          [data-bis-]
+          [data-bis-],
+          [bis_skin_checked]
         `).length > 0;
 
-        return hasExtensionAttrs || hasExtensionElements;
+        // Check for specific Ultimate Toolbar GPT elements
+        const hasUltimateToolbar = document.getElementById('ultimate-toolbar-gpt') !== null;
+
+        return hasExtensionAttrs || hasExtensionElements || hasUltimateToolbar;
       } catch (e) {
         return false;
       }
@@ -108,11 +119,26 @@ export default function StableHydration({
               attrName.includes('__processed_') ||
               attrName.includes('bis_') ||
               attrName.includes('extension') ||
-              attrName.includes('ultimate-toolbar')
+              attrName.includes('ultimate-toolbar') ||
+              attrName === 'hidden' ||
+              attrName === 'id'
             )) {
               hasRelevantChanges = true;
             }
           }
+        } else if (mutation.type === 'childList') {
+          // Watch for addition of extension elements
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const element = node as Element;
+              if (element.id?.includes('ultimate-toolbar') ||
+                  element.id?.includes('bis_') ||
+                  element.className?.includes('ul-sticky-container') ||
+                  element.hasAttribute('bis_skin_checked')) {
+                hasRelevantChanges = true;
+              }
+            }
+          });
         }
       });
 
@@ -126,7 +152,7 @@ export default function StableHydration({
           if (mounted) {
             waitForStability();
           }
-        }, 200);
+        }, 300);
       }
     });
 
@@ -134,7 +160,16 @@ export default function StableHydration({
     if (typeof window !== 'undefined') {
       observer.observe(document.body, {
         attributes: true,
-        attributeFilter: ['id', 'class', 'data-extension', 'data-bis-', 'hidden']
+        childList: true,
+        subtree: true,
+        attributeFilter: ['id', 'class', 'data-extension', 'data-bis-', 'hidden', 'bis_skin_checked']
+      });
+      
+      // Also observe documentElement for extension attributes
+      observer.observe(document.documentElement, {
+        attributes: true,
+        childList: true,
+        attributeFilter: ['id', 'class', 'data-extension', 'data-bis-', 'hidden', 'bis_skin_checked']
       });
     }
 
@@ -162,4 +197,7 @@ export default function StableHydration({
   // After stability is achieved, render children
   return <>{children}</>;
 }
+
+
+
 

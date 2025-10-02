@@ -33,6 +33,8 @@ interface GameStore extends GameState {
   passTurn: () => void;
   updatePossibleMoves: () => void;
   resetSelection: () => void;
+  resetGame: () => void;
+  updateGameState: (newGameState: Partial<GameState>) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -122,5 +124,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
       selectedPosition: null,
       possibleMoves: []
     });
+  },
+
+  // Reset the entire game state
+  resetGame: () => {
+    set(getInitialState());
+  },
+
+  // Update game state from server
+  updateGameState: (newGameState: Partial<GameState>) => {
+    set(prev => ({
+      ...prev,
+      ...newGameState,
+      selectedCard: null,
+      selectedPosition: null,
+      possibleMoves: []
+    }));
   }
 }));

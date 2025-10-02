@@ -1,21 +1,9 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as NetServer } from 'http';
+import { GameRoom } from '../types/socket';
 
 // Game rooms storage
-const gameRooms = new Map<string, {
-  id: string;
-  admin: string;
-  players: Map<string, any>;
-  gameState: any;
-  settings: {
-    maxPlayers: number;
-    turnTimeLimit: number;
-    gameMode: string;
-  };
-  currentTurn: string;
-  turnStartTime: number;
-  timer: NodeJS.Timeout | null;
-}>();
+const gameRooms = new Map<string, GameRoom>();
 
 let io: SocketIOServer | null = null;
 
@@ -56,7 +44,8 @@ export function initializeSocket(server: NetServer) {
           },
           currentTurn: '',
           turnStartTime: 0,
-          timer: null
+          timer: null,
+          lobbyState: 'waiting' // 'waiting' | 'starting'
         });
       }
 
@@ -71,7 +60,7 @@ export function initializeSocket(server: NetServer) {
       room.players.set(socket.id, {
         id: socket.id,
         name: playerName,
-        isAdmin: isAdmin || socket.id === room.admin,
+        isAdmin: isAdmin, // Only set admin based on the isAdmin parameter
         isConnected: true
       });
 
@@ -79,7 +68,8 @@ export function initializeSocket(server: NetServer) {
         roomId,
         players: Array.from(room.players.values()),
         settings: room.settings,
-        gameState: room.gameState
+        gameState: room.gameState,
+        lobbyState: room.lobbyState
       });
 
       socket.to(roomId).emit('player-joined', {
@@ -135,7 +125,7 @@ export function initializeSocket(server: NetServer) {
         const elapsed = (Date.now() - room.turnStartTime) / 1000;
         if (elapsed >= room.settings.turnTimeLimit) {
           // Auto-pass turn
-          const currentPlayerIndex = room.gameState.players.findIndex(p => p.id === room.currentTurn);
+          const currentPlayerIndex = room.gameState.players.findIndex((p: any) => p.id === room.currentTurn);
           const nextPlayerIndex = (currentPlayerIndex + 1) % room.gameState.players.length;
           room.currentTurn = room.gameState.players[nextPlayerIndex].id;
           room.gameState.currentPlayer = room.currentTurn;
@@ -148,10 +138,14 @@ export function initializeSocket(server: NetServer) {
         }
       }, 1000);
 
+      // Update lobby state
+      room.lobbyState = 'starting';
+
       io!.to(roomId).emit('game-started', {
         gameState: room.gameState,
         settings: room.settings,
-        currentPlayer: room.currentTurn
+        currentPlayer: room.currentTurn,
+        lobbyState: room.lobbyState
       });
     });
 

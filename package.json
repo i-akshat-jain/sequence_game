@@ -7,7 +7,9 @@
     "dev:next": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "node server.js",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",

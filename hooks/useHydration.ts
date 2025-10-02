@@ -44,24 +44,37 @@ export function useHydration(): HydrationState {
         const body = document.body;
         if (!body) return false;
 
-        // Check for extension attributes
-        const attributes = Array.from(body.attributes);
-        const hasExtensionAttrs = attributes.some(attr => 
+        // Check for extension attributes on body and documentElement
+        const bodyAttributes = Array.from(body.attributes);
+        const docAttributes = Array.from(document.documentElement.attributes);
+        const hasExtensionAttrs = bodyAttributes.some(attr => 
           attr.name.includes('__processed_') ||
           attr.name.includes('bis_') ||
-          attr.name.includes('extension')
+          attr.name.includes('extension') ||
+          attr.name.includes('ultimate-toolbar')
+        ) || docAttributes.some(attr => 
+          attr.name.includes('__processed_') ||
+          attr.name.includes('bis_') ||
+          attr.name.includes('extension') ||
+          attr.name.includes('ultimate-toolbar')
         );
 
-        // Check for extension elements
+        // Check for extension elements (including Ultimate Toolbar GPT)
         const hasExtensionElements = document.querySelectorAll(`
           [id*="ultimate-toolbar"],
+          [id*="ultimate-toolbar-gpt"],
           [id*="bis_"],
           [class*="ul-sticky-container"],
+          [class*="react-draggable"],
           [data-extension],
-          [data-bis-]
+          [data-bis-],
+          [bis_skin_checked]
         `).length > 0;
 
-        return hasExtensionAttrs || hasExtensionElements;
+        // Check for specific Ultimate Toolbar GPT elements
+        const hasUltimateToolbar = document.getElementById('ultimate-toolbar-gpt') !== null;
+
+        return hasExtensionAttrs || hasExtensionElements || hasUltimateToolbar;
       } catch (e) {
         return false;
       }
@@ -103,24 +116,49 @@ export function useHydration(): HydrationState {
             if (attrName && (
               attrName.includes('__processed_') ||
               attrName.includes('bis_') ||
-              attrName.includes('extension')
+              attrName.includes('extension') ||
+              attrName.includes('ultimate-toolbar') ||
+              attrName === 'hidden' ||
+              attrName === 'id'
             )) {
               hasRelevantChanges = true;
             }
           }
+        } else if (mutation.type === 'childList') {
+          // Watch for addition of extension elements
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const element = node as Element;
+              if (element.id?.includes('ultimate-toolbar') ||
+                  element.id?.includes('bis_') ||
+                  element.className?.includes('ul-sticky-container') ||
+                  element.hasAttribute('bis_skin_checked')) {
+                hasRelevantChanges = true;
+              }
+            }
+          });
         }
       });
 
       if (hasRelevantChanges) {
         // Wait a bit for extensions to finish modifying
-        setTimeout(checkHydration, 100);
+        setTimeout(checkHydration, 200);
       }
     });
 
     // Start observing
     observer.observe(document.body, {
       attributes: true,
-      attributeFilter: ['id', 'class', 'data-extension', 'data-bis-']
+      childList: true,
+      subtree: true,
+      attributeFilter: ['id', 'class', 'data-extension', 'data-bis-', 'hidden', 'bis_skin_checked']
+    });
+    
+    // Also observe documentElement for extension attributes
+    observer.observe(document.documentElement, {
+      attributes: true,
+      childList: true,
+      attributeFilter: ['id', 'class', 'data-extension', 'data-bis-', 'hidden', 'bis_skin_checked']
     });
 
     // Fallback timer to ensure we eventually hydrate
@@ -143,4 +181,7 @@ export function useHydration(): HydrationState {
 
   return state;
 }
+
+
+
 

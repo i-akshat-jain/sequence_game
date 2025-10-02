@@ -44,9 +44,9 @@ const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurre
     let additionalClass = "";
     
     if (isSelected) {
-      additionalClass = "border-yellow-500 bg-yellow-100 transform scale-105";
+      additionalClass = "border-yellow-500 bg-yellow-100 transform scale-105 shadow-lg";
     } else if (isPlayable) {
-      additionalClass = "border-gray-400 bg-white hover:border-blue-400 hover:bg-blue-50 hover:scale-105 cursor-pointer";
+      additionalClass = "border-gray-400 bg-white hover:border-blue-400 hover:bg-blue-50 hover:scale-105 hover:shadow-md cursor-pointer";
     } else {
       additionalClass = "border-gray-300 bg-gray-100 opacity-60 cursor-not-allowed";
     }
@@ -61,22 +61,24 @@ const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurre
   };
 
   return (
-    <div className="bg-gray-50 p-4 rounded-lg">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-gray-800">
-          {player.name} 
+    <div className="bg-gradient-to-br from-slate-50 to-green-50 p-6 rounded-xl shadow-md border border-gray-200">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-gray-800">
+            {player.name}
+          </h3>
           {isCurrentPlayer && (
-            <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+            <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
               {isMyTurn ? 'Your Turn' : 'Current Turn'}
             </span>
           )}
-        </h3>
-        <div className="text-sm text-gray-600">
+        </div>
+        <div className="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg border border-gray-200">
           {player.hand.length} cards
         </div>
       </div>
       
-      <div className="flex flex-wrap gap-2 justify-center">
+      <div className="flex flex-wrap gap-3 justify-center">
         {player.hand.map((card) => (
           <div
             key={card.id}
@@ -88,7 +90,7 @@ const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurre
               {getCardDisplay(card)}
             </div>
             {card.jackType && (
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-gray-500 mt-1 font-medium">
                 {card.jackType === 'two-eyed' ? 'Any' : 'Remove'}
               </div>
             )}
@@ -97,11 +99,11 @@ const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurre
       </div>
       
       {isCurrentPlayer && selectedCard && (
-        <div className="mt-3 text-center">
-          <p className="text-sm text-blue-600">
+        <div className="mt-4 text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-800 font-medium">
             Selected: {getCardDisplay(selectedCard)}
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-blue-600 mt-1">
             Click on a valid board position to play this card
           </p>
         </div>
