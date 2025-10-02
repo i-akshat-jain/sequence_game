@@ -1,5 +1,6 @@
 import { GameState, Player, Card, BoardPosition, Chip, TeamId, PlayerId, GameAction } from '../types/game';
 import { canPlayCard, getValidPositions, generateDeck, shuffleDeck, dealCards } from './cardUtils';
+import { checkForSequences } from './winConditions';
 
 // Initialize a new game
 export function initializeGame(playerCount: number): GameState {
