@@ -185,7 +185,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({
   }
 
   if (currentRoom) {
-    const isAdmin = currentRoom.players?.find((p: Player) => p.id === socket?.id)?.isAdmin;
+    const isAdmin = currentRoom.players?.find((p: Player) => p.id === socket?.id)?.isAdmin || userSession?.isAdmin;
     
     console.log('GameLobby - currentRoom:', currentRoom);
     console.log('GameLobby - socket?.id:', socket?.id);
@@ -193,10 +193,13 @@ const GameLobby: React.FC<GameLobbyProps> = ({
     console.log('GameLobby - isAdmin:', isAdmin);
     console.log('GameLobby - gameState:', currentRoom.gameState);
     console.log('GameLobby - lobbyState:', currentRoom.lobbyState);
+    console.log('GameLobby - userSession:', userSession);
+    console.log('GameLobby - userSession.isAdmin:', userSession?.isAdmin);
     console.log('GameLobby - condition check:', {
       hasGameState: !!currentRoom.gameState,
       gamePhase: currentRoom.gameState?.gamePhase,
       isAdmin: isAdmin,
+      userSessionIsAdmin: userSession?.isAdmin,
       shouldShowWaitingLobby: (!currentRoom.gameState || currentRoom.gameState.gamePhase === 'setup') && !isAdmin
     });
     

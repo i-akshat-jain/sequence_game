@@ -40,7 +40,13 @@ const WaitingLobby: React.FC<WaitingLobbyProps> = ({
   // Handle start game
   const handleStartGame = () => {
     if (socket && roomId) {
-      socket.emit('start-game', { roomId });
+      // Use default settings since WaitingLobby doesn't have access to game settings
+      const defaultSettings = {
+        maxPlayers: 4,
+        turnTimeLimit: 60,
+        gameMode: 'classic'
+      };
+      socket.emit('start-game', { roomId, settings: defaultSettings });
     }
   };
 
