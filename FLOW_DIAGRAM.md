@@ -190,3 +190,4 @@ sequenceDiagram
 - **Sequence Detection**: Automatic win condition checking
 - **Responsive UI**: Modern, mobile-friendly interface
 - **Error Recovery**: Robust error handling and reconnection
+
