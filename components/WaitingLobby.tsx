@@ -15,18 +15,20 @@ interface WaitingLobbyProps {
   players: Player[];
   lobbyState: 'waiting' | 'starting';
   onGameStart: () => void;
+  isAdmin?: boolean;
 }
 
 const WaitingLobby: React.FC<WaitingLobbyProps> = ({
   roomId,
   players,
   lobbyState,
-  onGameStart
+  onGameStart,
+  isAdmin: propIsAdmin
 }) => {
   const { socket, userSession } = useSocket();
 
-  // Check if current user is admin
-  const isAdmin = userSession?.isAdmin || false;
+  // Use prop isAdmin if provided, otherwise check from userSession
+  const isAdmin = propIsAdmin !== undefined ? propIsAdmin : (userSession?.isAdmin || false);
   const currentPlayer = players.find(p => p.id === userSession?.userId);
   
   console.log('WaitingLobby - RENDERED!');

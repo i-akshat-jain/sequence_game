@@ -1,17 +1,22 @@
 import { create } from 'zustand';
 import { GameState, PlayerId, Card, BoardPosition, GameAction } from '../types/game';
-import { initializeGame, applyGameAction, getPossibleMoves } from '../utils/gameLogic';
+import { initializeGame, applyGameAction, getPossibleMoves, handleDeadCards } from '../utils/gameLogic';
 import { createBoardLayout } from '../utils/cardUtils';
 
 // Create a simple initial state that's safe for SSR
 const getInitialState = () => ({
   players: [],
+  teams: [],
   currentPlayer: 'player1' as PlayerId,
   board: Array(10).fill(null).map(() => Array(10).fill(null)),
   deck: [],
   discardPile: [],
   gamePhase: 'setup' as const,
   sequences: [],
+  playerCount: 0,
+  requiredSequences: 2,
+  dealer: 'player1' as PlayerId,
+  turnOrder: [],
   boardLayout: {} as any,
   selectedCard: null as Card | null,
   selectedPosition: null as BoardPosition | null,
@@ -44,9 +49,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Actions
   initializeNewGame: (playerCount: number) => {
     const newGame = initializeGame(playerCount);
+    // Don't create board layout here - it will come from server
     set({
       ...newGame,
-      boardLayout: createBoardLayout(),
       selectedCard: null,
       selectedPosition: null,
       possibleMoves: []
@@ -56,9 +61,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Initialize the store on client side
   initializeStore: () => {
     const state = get();
-    if (Object.keys(state.boardLayout).length === 0) {
-      set({ boardLayout: createBoardLayout() });
-    }
+    // Don't create board layout here - it will come from server
+    // set({ boardLayout: createBoardLayout() });
   },
 
   selectCard: (card: Card | null) => {
@@ -80,6 +84,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   playCard: (card: Card, position: BoardPosition) => {
     const state = get();
+    
+    // Check for dead cards first
+    const deadCardActions = handleDeadCards(state, state.currentPlayer, state.boardLayout);
+    if (deadCardActions.length > 0) {
+      // Auto-discard dead cards
+      let newState: GameState = state;
+      deadCardActions.forEach(action => {
+        newState = applyGameAction(newState, action);
+      });
+      set({
+        ...newState,
+        boardLayout: state.boardLayout,
+        selectedCard: null,
+        selectedPosition: null,
+        possibleMoves: []
+      });
+      return;
+    }
+    
     const action: GameAction = {
       type: 'play_card',
       playerId: state.currentPlayer,
@@ -90,6 +113,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newState = applyGameAction(state, action);
     set({
       ...newState,
+      boardLayout: state.boardLayout,
       selectedCard: null,
       selectedPosition: null,
       possibleMoves: []
@@ -106,6 +130,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newState = applyGameAction(state, action);
     set({
       ...newState,
+      boardLayout: state.boardLayout,
       selectedCard: null,
       selectedPosition: null,
       possibleMoves: []
@@ -133,12 +158,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // Update game state from server
   updateGameState: (newGameState: Partial<GameState>) => {
-    set(prev => ({
-      ...prev,
-      ...newGameState,
-      selectedCard: null,
-      selectedPosition: null,
-      possibleMoves: []
-    }));
+    console.log('🔄 Updating game state:', newGameState);
+    console.log('🔄 Board layout keys in update:', Object.keys(newGameState.boardLayout || {}));
+    console.log('🔄 Board layout sample in update:', Object.keys(newGameState.boardLayout || {}).slice(0, 5));
+    
+    set(prev => {
+      const updatedState = {
+        ...prev,
+        ...newGameState,
+        // Ensure board layout is properly set from server
+        boardLayout: newGameState.boardLayout || prev.boardLayout,
+        selectedCard: null,
+        selectedPosition: null,
+        possibleMoves: []
+      };
+      
+      console.log('🔄 Final board layout keys after update:', Object.keys(updatedState.boardLayout || {}));
+      console.log('🔄 Final board layout sample after update:', Object.keys(updatedState.boardLayout || {}).slice(0, 5));
+      
+      return updatedState;
+    });
   }
 }));

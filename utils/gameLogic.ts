@@ -1,5 +1,5 @@
-import { GameState, Player, Card, BoardPosition, Chip, TeamId, PlayerId, GameAction } from '../types/game';
-import { canPlayCard, getValidPositions, generateDeck, shuffleDeck, dealCards } from './cardUtils';
+import { GameState, Player, Card, BoardPosition, Chip, TeamId, PlayerId, GameAction, Team } from '../types/game';
+import { canPlayCard, getValidPositions, generateDeck, shuffleDeck, dealCards, isDeadCard } from './cardUtils';
 import { checkForSequences } from './winConditions';
 
 // Initialize a new game
@@ -7,22 +7,56 @@ export function initializeGame(playerCount: number): GameState {
   const deck = shuffleDeck(generateDeck());
   const { hands, remainingDeck } = dealCards(deck, playerCount);
   
-  const players: Player[] = hands.map((hand, index) => ({
-    id: `player${index + 1}` as PlayerId,
-    name: `Player ${index + 1}`,
-    team: index < 2 ? 'team1' : 'team2' as TeamId,
-    hand,
-    isActive: index === 0
-  }));
+  // Create teams based on player count
+  const teams: Team[] = [];
+  if (playerCount <= 2) {
+    teams.push({ id: 'team1', name: 'Team 1', color: 'red', players: [], sequences: [] });
+    teams.push({ id: 'team2', name: 'Team 2', color: 'blue', players: [], sequences: [] });
+  } else if (playerCount <= 3) {
+    teams.push({ id: 'team1', name: 'Team 1', color: 'red', players: [], sequences: [] });
+    teams.push({ id: 'team2', name: 'Team 2', color: 'blue', players: [], sequences: [] });
+    teams.push({ id: 'team3', name: 'Team 3', color: 'green', players: [], sequences: [] });
+  }
+  
+  const players: Player[] = hands.map((hand, index) => {
+    const teamId = playerCount <= 2 
+      ? (index % 2 === 0 ? 'team1' : 'team2')
+      : (index % 3 === 0 ? 'team1' : index % 3 === 1 ? 'team2' : 'team3') as TeamId;
+    
+    return {
+      id: `player${index + 1}` as PlayerId,
+      name: `Player ${index + 1}`,
+      team: teamId,
+      hand,
+      isActive: index === 0,
+      discardPile: []
+    };
+  });
+
+  // Assign players to teams
+  players.forEach(player => {
+    const team = teams.find(t => t.id === player.team);
+    if (team) {
+      team.players.push(player.id);
+    }
+  });
+
+  // Determine required sequences for win condition
+  const requiredSequences = playerCount <= 2 ? 2 : 1;
 
   return {
     players,
+    teams,
     currentPlayer: 'player1',
     board: Array(10).fill(null).map(() => Array(10).fill(null)),
     deck: remainingDeck,
     discardPile: [],
     gamePhase: 'setup',
-    sequences: []
+    sequences: [],
+    playerCount,
+    requiredSequences,
+    dealer: 'player1',
+    turnOrder: players.map(p => p.id)
   };
 }
 
@@ -41,11 +75,35 @@ export function playCard(
   const cardIndex = player.hand.findIndex(c => c.id === card.id);
   if (cardIndex === -1) return null;
 
-  // Check if position is valid
-  if (!canPlayCard(card, position, boardLayout)) return null;
+  // Handle special Jack rules
+  if (card.rank === 'J' && card.jackType === 'one-eyed') {
+    // One-eyed Jack: remove opponent's chip
+    const targetChip = gameState.board[position.row][position.col];
+    if (!targetChip || targetChip.team === player.team) return null;
+    
+    // Check if chip is part of a completed sequence (protected)
+    const isProtected = gameState.sequences.some(seq => 
+      seq.positions.some(pos => pos.row === position.row && pos.col === position.col)
+    );
+    if (isProtected) return null;
+    
+    return {
+      type: 'remove_chip',
+      playerId,
+      card,
+      targetPosition: position
+    };
+  }
 
-  // Check if position is already occupied
-  if (gameState.board[position.row][position.col]) return null;
+  // Handle two-eyed Jack or regular card placement
+  if (card.rank === 'J' && card.jackType === 'two-eyed') {
+    // Two-eyed Jack: can be placed anywhere
+    if (gameState.board[position.row][position.col]) return null;
+  } else {
+    // Regular card: must match board position
+    if (!canPlayCard(card, position, boardLayout)) return null;
+    if (gameState.board[position.row][position.col]) return null;
+  }
 
   return {
     type: 'play_card',
@@ -73,7 +131,7 @@ export function applyGameAction(gameState: GameState, action: GameAction): GameS
 
         // Add chip to board
         const chip: Chip = {
-          id: `chip-${action.playerId}-${action.position.row}-${action.position.col}-${newState.sequences.length}`,
+          id: `chip-${action.playerId}-${action.position.row}-${action.position.col}-${Date.now()}`,
           playerId: action.playerId,
           team: player.team,
           position: action.position
@@ -81,21 +139,28 @@ export function applyGameAction(gameState: GameState, action: GameAction): GameS
         
         newState.board[action.position.row][action.position.col] = chip;
         
-        // Add card to discard pile
-        newState.discardPile.push(action.card);
+        // Add card to player's discard pile
+        player.discardPile.push(action.card);
         
         // Check for sequences
         const sequences = checkForSequences(newState, action.position);
         newState.sequences.push(...sequences);
         
-        // Check for win condition
-        if (sequences.length > 0) {
-          const teamSequences = newState.sequences.filter(s => s.team === player.team);
-          if (teamSequences.length >= 2) { // Need 2 sequences to win
-            newState.gamePhase = 'finished';
-            newState.winner = player.team;
-          }
+        // Update team sequences
+        const team = newState.teams.find(t => t.id === player.team);
+        if (team) {
+          team.sequences = newState.sequences.filter(s => s.team === player.team);
         }
+        
+        // Check for win condition
+        const teamSequences = newState.sequences.filter(s => s.team === player.team);
+        if (teamSequences.length >= newState.requiredSequences) {
+          newState.gamePhase = 'finished';
+          newState.winner = player.team;
+        }
+        
+        // Draw a new card
+        drawCard(newState, player);
         
         // Move to next player
         nextTurn(newState);
@@ -103,9 +168,41 @@ export function applyGameAction(gameState: GameState, action: GameAction): GameS
       break;
       
     case 'remove_chip':
-      if (action.targetChip) {
-        const chip = action.targetChip;
-        newState.board[chip.position.row][chip.position.col] = null;
+      if (action.targetPosition) {
+        // Remove opponent's chip
+        newState.board[action.targetPosition.row][action.targetPosition.col] = null;
+        
+        // Add card to player's discard pile
+        if (action.card) {
+          const cardIndex = player.hand.findIndex(c => c.id === action.card!.id);
+          if (cardIndex !== -1) {
+            player.hand.splice(cardIndex, 1);
+            player.discardPile.push(action.card!);
+          }
+        }
+        
+        // Draw a new card
+        drawCard(newState, player);
+        
+        // Move to next player
+        nextTurn(newState);
+      }
+      break;
+      
+    case 'discard_dead_card':
+      if (action.card) {
+        // Remove dead card from hand and discard
+        const cardIndex = player.hand.findIndex(c => c.id === action.card!.id);
+        if (cardIndex !== -1) {
+          player.hand.splice(cardIndex, 1);
+          player.discardPile.push(action.card!);
+        }
+        
+        // Draw a new card
+        drawCard(newState, player);
+        
+        // Move to next player
+        nextTurn(newState);
       }
       break;
       
@@ -117,17 +214,51 @@ export function applyGameAction(gameState: GameState, action: GameAction): GameS
   return newState;
 }
 
+// Draw a card from the deck
+function drawCard(gameState: GameState, player: Player): void {
+  if (gameState.deck.length === 0) {
+    // Reshuffle discard pile if deck is empty
+    reshuffleDeck(gameState);
+  }
+  
+  if (gameState.deck.length > 0) {
+    const drawnCard = gameState.deck.pop()!;
+    player.hand.push(drawnCard);
+  }
+}
+
+// Reshuffle discard pile when deck is empty
+function reshuffleDeck(gameState: GameState): void {
+  // Collect all discard piles
+  const allDiscards: Card[] = [...gameState.discardPile];
+  gameState.players.forEach(player => {
+    allDiscards.push(...player.discardPile);
+    player.discardPile = []; // Clear player discard piles
+  });
+  
+  // Shuffle and create new deck
+  gameState.deck = shuffleDeck(allDiscards);
+  gameState.discardPile = []; // Clear general discard pile
+}
+
 // Move to the next player's turn
 function nextTurn(gameState: GameState): void {
-  const currentIndex = gameState.players.findIndex(p => p.id === gameState.currentPlayer);
-  const nextIndex = (currentIndex + 1) % gameState.players.length;
+  const currentIndex = gameState.turnOrder.findIndex(id => id === gameState.currentPlayer);
+  const nextIndex = (currentIndex + 1) % gameState.turnOrder.length;
   
   // Deactivate current player
-  gameState.players[currentIndex].isActive = false;
+  const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayer);
+  if (currentPlayer) {
+    currentPlayer.isActive = false;
+  }
   
   // Activate next player
-  gameState.players[nextIndex].isActive = true;
-  gameState.currentPlayer = gameState.players[nextIndex].id;
+  const nextPlayerId = gameState.turnOrder[nextIndex];
+  const nextPlayer = gameState.players.find(p => p.id === nextPlayerId);
+  if (nextPlayer) {
+    nextPlayer.isActive = true;
+    gameState.currentPlayer = nextPlayerId;
+  }
 }
 
 // Check if a position is valid for placing a chip
@@ -161,14 +292,67 @@ export function getPossibleMoves(
   const moves: Array<{ card: Card; position: BoardPosition }> = [];
   
   player.hand.forEach(card => {
-    const validPositions = getValidPositions(card, boardLayout);
-    validPositions.forEach(position => {
-      if (isValidPosition(position, gameState, boardLayout)) {
-        moves.push({ card, position });
+    // Handle special Jack rules
+    if (card.rank === 'J' && card.jackType === 'two-eyed') {
+      // Two-eyed Jack: can be placed anywhere
+      for (let row = 0; row < 10; row++) {
+        for (let col = 0; col < 10; col++) {
+          if (!gameState.board[row][col]) {
+            moves.push({ card, position: { row, col } });
+          }
+        }
       }
-    });
+    } else if (card.rank === 'J' && card.jackType === 'one-eyed') {
+      // One-eyed Jack: can remove any opponent's chip
+      for (let row = 0; row < 10; row++) {
+        for (let col = 0; col < 10; col++) {
+          const chip = gameState.board[row][col];
+          if (chip && chip.team !== player.team) {
+            // Check if chip is not part of a completed sequence
+            const isProtected = gameState.sequences.some(seq => 
+              seq.positions.some(pos => pos.row === row && pos.col === col)
+            );
+            if (!isProtected) {
+              moves.push({ card, position: { row, col } });
+            }
+          }
+        }
+      }
+    } else {
+      // Regular card: must match board position
+      const validPositions = getValidPositions(card, boardLayout);
+      validPositions.forEach(position => {
+        if (isValidPosition(position, gameState, boardLayout)) {
+          moves.push({ card, position });
+        }
+      });
+    }
   });
   
   return moves;
+}
+
+// Check if a player has any dead cards
+export function getDeadCards(gameState: GameState, playerId: PlayerId, boardLayout: any): Card[] {
+  const player = gameState.players.find(p => p.id === playerId);
+  if (!player) return [];
+
+  return player.hand.filter(card => isDeadCard(card, gameState, boardLayout));
+}
+
+// Handle automatic dead card discard
+export function handleDeadCards(gameState: GameState, playerId: PlayerId, boardLayout: any): GameAction[] {
+  const deadCards = getDeadCards(gameState, playerId, boardLayout);
+  const actions: GameAction[] = [];
+  
+  deadCards.forEach(card => {
+    actions.push({
+      type: 'discard_dead_card',
+      playerId,
+      card
+    });
+  });
+  
+  return actions;
 }
 

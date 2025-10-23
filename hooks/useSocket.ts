@@ -143,6 +143,10 @@ export function useSocket(): UseSocketReturn {
 
     newSocket.on('game-started', (data) => {
       console.log('🎉 Game started event received in useSocket:', data);
+      console.log('🎉 Board layout keys received:', Object.keys(data.gameState.boardLayout || {}));
+      console.log('🎉 Board layout sample received:', Object.keys(data.gameState.boardLayout || {}).slice(0, 5));
+      console.log('🎉 Board layout type received:', typeof data.gameState.boardLayout);
+      console.log('🎉 Board layout length received:', data.gameState.boardLayout ? Object.keys(data.gameState.boardLayout).length : 'undefined');
       setCurrentRoom(prev => {
         if (!prev) return null;
         return { ...prev, gameState: data.gameState };

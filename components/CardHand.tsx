@@ -91,7 +91,7 @@ const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurre
             </div>
             {card.jackType && (
               <div className="text-xs text-gray-500 mt-1 font-medium">
-                {card.jackType === 'two-eyed' ? 'Any' : 'Remove'}
+                {card.jackType === 'two-eyed' ? 'Wild' : 'Remove'}
               </div>
             )}
           </div>

@@ -200,15 +200,16 @@ const GameLobby: React.FC<GameLobbyProps> = ({
       shouldShowWaitingLobby: (!currentRoom.gameState || currentRoom.gameState.gamePhase === 'setup') && !isAdmin
     });
     
-    // Show waiting lobby only for normal players (not admins) if game hasn't started yet
-    if ((!currentRoom.gameState || currentRoom.gameState.gamePhase === 'setup') && !isAdmin) {
-      console.log('GameLobby - Showing WaitingLobby for normal player');
+    // Show waiting lobby for ALL players if game hasn't started yet
+    if (!currentRoom.gameState || currentRoom.gameState.gamePhase === 'setup') {
+      console.log('GameLobby - Showing WaitingLobby for all players');
       return (
         <WaitingLobby
           roomId={currentRoom.id}
           players={currentRoom.players || []}
           lobbyState={currentRoom.lobbyState || 'waiting'}
           onGameStart={() => onGameStart(currentRoom.id)}
+          isAdmin={isAdmin}
         />
       );
     }

@@ -10,6 +10,34 @@ interface GameBoardProps {
 
 const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
   const { board, boardLayout, selectedPosition, possibleMoves, sequences } = useGameStore();
+  
+  // Debug board layout
+  console.log('🎯 GameBoard - boardLayout:', boardLayout);
+  console.log('🎯 GameBoard - boardLayout keys:', Object.keys(boardLayout || {}));
+  console.log('🎯 GameBoard - boardLayout sample:', Object.keys(boardLayout || {}).slice(0, 5));
+  console.log('🎯 GameBoard - boardLayout type:', typeof boardLayout);
+  console.log('🎯 GameBoard - boardLayout is array?', Array.isArray(boardLayout));
+  console.log('🎯 GameBoard - boardLayout length:', boardLayout ? Object.keys(boardLayout).length : 'undefined');
+  
+  // Debug when board layout changes
+  React.useEffect(() => {
+    console.log('🎯 GameBoard - boardLayout changed:', boardLayout);
+    console.log('🎯 GameBoard - boardLayout keys after change:', Object.keys(boardLayout || {}));
+  }, [boardLayout]);
+  
+  // Show loading state if no board layout from server
+  if (!boardLayout || Object.keys(boardLayout).length === 0) {
+    console.log('🎯 GameBoard - No board layout available, waiting for server');
+    return (
+      <div className="bg-gradient-to-br from-slate-50 to-blue-50 p-6 rounded-xl shadow-lg border border-gray-200">
+        <div className="text-center text-gray-500">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p>Waiting for server to generate board layout...</p>
+          <p className="text-sm mt-2">All players will see the same board</p>
+        </div>
+      </div>
+    );
+  }
 
   const getPositionClass = (row: number, col: number) => {
     const baseClass = "w-12 h-12 border-2 flex items-center justify-center text-xs font-bold cursor-pointer transition-all duration-200 rounded-md";
@@ -43,7 +71,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
   };
 
   const getChipColor = (chip: Chip) => {
-    const colors = {
+    const colors: Record<string, string> = {
       player1: 'bg-red-500',
       player2: 'bg-blue-500', 
       player3: 'bg-green-500',
@@ -56,7 +84,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
     const positionKey = `${row}-${col}`;
     const layout = boardLayout[positionKey];
     
-    if (!layout) return '';
+    if (!layout) {
+      if (row === 0 && col === 0) {
+        console.log('🎯 getCardDisplay - No layout for position:', positionKey);
+        console.log('🎯 getCardDisplay - boardLayout keys:', Object.keys(boardLayout || {}));
+      }
+      return '';
+    }
     
     const { suit, rank } = layout.card;
     const suitSymbols = {
@@ -67,6 +101,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
     };
     
     return `${rank}${suitSymbols[suit as keyof typeof suitSymbols]}`;
+  };
+
+  const getCardColor = (row: number, col: number) => {
+    const positionKey = `${row}-${col}`;
+    const layout = boardLayout[positionKey];
+    
+    if (!layout) return 'text-gray-600';
+    
+    const { suit } = layout.card;
+    return suit === 'hearts' || suit === 'diamonds' ? 'text-red-600' : 'text-black';
   };
 
   return (
@@ -87,7 +131,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
                 {chip ? (
                   <div className={`w-8 h-8 rounded-full ${getChipColor(chip)} border-2 border-white shadow-md`} />
                 ) : (
-                  <span className="text-gray-600 text-xs font-medium">{cardDisplay}</span>
+                  <span className={`text-xs font-medium ${getCardColor(row, col)}`}>{cardDisplay}</span>
                 )}
               </div>
             );

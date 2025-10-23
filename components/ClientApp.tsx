@@ -197,6 +197,9 @@ export default function ClientApp() {
   // Sync game state with room state
   useEffect(() => {
     if (currentRoom?.gameState) {
+      console.log('🔄 ClientApp - Syncing game state from currentRoom:', currentRoom.gameState);
+      console.log('🔄 ClientApp - Board layout keys in currentRoom:', Object.keys(currentRoom.gameState.boardLayout || {}));
+      console.log('🔄 ClientApp - Board layout sample in currentRoom:', Object.keys(currentRoom.gameState.boardLayout || {}).slice(0, 5));
       updateGameState(currentRoom.gameState);
     }
   }, [currentRoom?.gameState, updateGameState]);
@@ -440,23 +443,28 @@ export default function ClientApp() {
                 <div className="space-y-6 text-secondary">
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <h3 className="text-xl font-bold text-primary mb-3">🎯 Objective</h3>
-                    <p className="text-lg">Be the first team to get 2 sequences of 5 chips in a row (horizontal, vertical, or diagonal).</p>
+                    <p className="text-lg">Be the first team to get the required number of sequences of 5 chips in a row (horizontal, vertical, or diagonal).</p>
+                    <p className="text-sm text-blue-700 mt-2">• 2 players/teams: Need 2 sequences to win</p>
+                    <p className="text-sm text-blue-700">• 3+ players/teams: Need 1 sequence to win</p>
                   </div>
                   
                   <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                     <h3 className="text-xl font-bold text-primary mb-3">🎮 Gameplay</h3>
                     <ul className="list-disc list-inside space-y-3 text-lg">
-                      <li>Each player is dealt 7 cards (2 players) or 6 cards (3-4 players)</li>
+                      <li>Each player is dealt cards based on player count (2 players: 7 cards, 3-4 players: 6 cards, etc.)</li>
                       <li>On your turn, play a card and place a chip on the corresponding board position</li>
-                      <li>Two-eyed Jacks can be placed anywhere on the board</li>
-                      <li>One-eyed Jacks can remove any opponent's chip</li>
-                      <li>Jokers can be placed anywhere on the board</li>
+                      <li><strong>Two-eyed Jacks (♥J, ♦J):</strong> Wild cards - can be placed anywhere on the board</li>
+                      <li><strong>One-eyed Jacks (♣J, ♠J):</strong> Remove any opponent's chip (cannot remove chips in completed sequences)</li>
+                      <li>Dead cards (no available positions) are automatically discarded and you draw a new card</li>
+                      <li>When the draw deck is empty, discard piles are reshuffled to create a new deck</li>
                     </ul>
                   </div>
                   
                   <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <h3 className="text-xl font-bold text-primary mb-3">🏆 Winning</h3>
-                    <p className="text-lg">First team to get 2 sequences of 5 chips in a row wins the game!</p>
+                    <p className="text-lg">First team to get the required number of sequences wins the game!</p>
+                    <p className="text-sm text-purple-700 mt-2">• Sequences must be exactly 5 chips in a straight line</p>
+                    <p className="text-sm text-purple-700">• Chips in completed sequences are protected from removal</p>
                   </div>
                 </div>
               </div>

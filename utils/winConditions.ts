@@ -22,7 +22,20 @@ export function checkForSequences(gameState: GameState, position: BoardPosition)
   directions.forEach(({ dr, dc }, index) => {
     const sequence = checkDirection(gameState, position, dr, dc, chip.team);
     if (sequence && sequence.positions.length >= 5) {
-      sequences.push(sequence);
+      // Check if this sequence is already recorded
+      const isDuplicate = gameState.sequences.some(existingSeq => 
+        existingSeq.team === sequence.team &&
+        existingSeq.positions.length === sequence.positions.length &&
+        existingSeq.positions.every(pos => 
+          sequence.positions.some(seqPos => 
+            seqPos.row === pos.row && seqPos.col === pos.col
+          )
+        )
+      );
+      
+      if (!isDuplicate) {
+        sequences.push(sequence);
+      }
     }
   });
 
@@ -55,7 +68,7 @@ function checkDirection(
       // If we have a sequence of 5 or more, return it
       if (positions.length >= 5) {
         return {
-          id: `sequence-${team}-${positions[0].row}-${positions[0].col}-${dr}-${dc}`,
+          id: `sequence-${team}-${positions[0].row}-${positions[0].col}-${dr}-${dc}-${Date.now()}`,
           team,
           positions: [...positions],
           direction: getDirectionName(dr, dc)
@@ -69,7 +82,7 @@ function checkDirection(
   // Check if we have a valid sequence at the end
   if (positions.length >= 5) {
     return {
-      id: `sequence-${team}-${positions[0].row}-${positions[0].col}-${dr}-${dc}`,
+      id: `sequence-${team}-${positions[0].row}-${positions[0].col}-${dr}-${dc}-${Date.now()}`,
       team,
       positions: [...positions],
       direction: getDirectionName(dr, dc)
@@ -86,7 +99,7 @@ function getDirectionName(dr: number, dc: number): 'horizontal' | 'vertical' | '
   return 'diagonal';
 }
 
-// Check if a team has won (2 sequences required)
+// Check if a team has won based on required sequences
 export function checkWinCondition(gameState: GameState): TeamId | null {
   const teamSequences = new Map<TeamId, Sequence[]>();
   
@@ -98,9 +111,9 @@ export function checkWinCondition(gameState: GameState): TeamId | null {
     teamSequences.get(sequence.team)!.push(sequence);
   });
   
-  // Check if any team has 2 or more sequences
+  // Check if any team has the required number of sequences
   for (const [team, sequences] of teamSequences) {
-    if (sequences.length >= 2) {
+    if (sequences.length >= gameState.requiredSequences) {
       return team;
     }
   }
