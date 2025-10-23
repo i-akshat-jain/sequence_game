@@ -19,6 +19,7 @@ interface GameRoom {
   };
   gameState: any;
   lobbyState: 'waiting' | 'starting';
+  selectedCards?: { [playerId: string]: any };
 }
 
 interface UseSocketReturn {
@@ -29,6 +30,8 @@ interface UseSocketReturn {
   joinRoom: (roomId: string, playerName: string, isAdmin?: boolean) => void;
   startGame: (roomId: string, settings?: any) => void;
   sendGameAction: (roomId: string, action: any) => void;
+  selectCard: (roomId: string, card: any) => void;
+  deselectCard: (roomId: string) => void;
   leaveRoom: (roomId: string) => void;
   clearError: () => void;
   error: string | null;
@@ -155,9 +158,38 @@ export function useSocket(): UseSocketReturn {
 
     newSocket.on('game-update', (data) => {
       console.log('Game update:', data);
+      console.log('🎯 Game update selected cards:', data.selectedCards);
       setCurrentRoom(prev => {
         if (!prev) return null;
-        return { ...prev, gameState: data.gameState };
+        return { 
+          ...prev, 
+          gameState: data.gameState,
+          selectedCards: data.selectedCards || prev.selectedCards
+        };
+      });
+    });
+
+    newSocket.on('card-selected', (data) => {
+      console.log('🎯 Card selected by player:', data.playerId, 'card:', data.card);
+      console.log('🎯 All selected cards:', data.selectedCards);
+      setCurrentRoom(prev => {
+        if (!prev) return null;
+        return { 
+          ...prev, 
+          selectedCards: data.selectedCards 
+        };
+      });
+    });
+
+    newSocket.on('card-deselected', (data) => {
+      console.log('🎯 Card deselected by player:', data.playerId);
+      console.log('🎯 Remaining selected cards:', data.selectedCards);
+      setCurrentRoom(prev => {
+        if (!prev) return null;
+        return { 
+          ...prev, 
+          selectedCards: data.selectedCards 
+        };
       });
     });
 
@@ -244,6 +276,18 @@ export function useSocket(): UseSocketReturn {
     }
   }, [socket]);
 
+  const selectCard = useCallback((roomId: string, card: any) => {
+    if (socket) {
+      socket.emit('select-card', { roomId, card });
+    }
+  }, [socket]);
+
+  const deselectCard = useCallback((roomId: string) => {
+    if (socket) {
+      socket.emit('deselect-card', { roomId });
+    }
+  }, [socket]);
+
   const leaveRoom = useCallback((roomId: string) => {
     if (socket) {
       socket.emit('leave-room', { roomId });
@@ -269,6 +313,8 @@ export function useSocket(): UseSocketReturn {
     joinRoom,
     startGame,
     sendGameAction,
+    selectCard,
+    deselectCard,
     leaveRoom,
     clearError,
     error

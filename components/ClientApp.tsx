@@ -7,6 +7,7 @@ import CardHand from './CardHand';
 import GameControls from './GameControls';
 import GameLobby from './GameLobby';
 import WinCelebration from './WinCelebration';
+import GameTutorial from './GameTutorial';
 import NoSSR from './NoSSR';
 import { useGameStore } from '../hooks/useGameState';
 import { useSocket } from '../hooks/useSocket';
@@ -100,13 +101,15 @@ export default function ClientApp() {
     initializeStore,
     winner,
     resetGame,
-    updateGameState
+    updateGameState,
+    updateSelectedCards
   } = useGameStore();
 
-  const { currentRoom, userSession, sendGameAction, joinRoom, startGame, isConnected, error: socketError, clearError } = useSocket();
+  const { currentRoom, userSession, sendGameAction, selectCard: socketSelectCard, deselectCard: socketDeselectCard, joinRoom, startGame, isConnected, error: socketError, clearError } = useSocket();
   const [showWinCelebration, setShowWinCelebration] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
@@ -203,6 +206,14 @@ export default function ClientApp() {
       updateGameState(currentRoom.gameState);
     }
   }, [currentRoom?.gameState, updateGameState]);
+
+  // Sync selected cards with room state
+  useEffect(() => {
+    if (currentRoom?.selectedCards) {
+      console.log('🎯 ClientApp - Syncing selected cards from currentRoom:', currentRoom.selectedCards);
+      updateSelectedCards(currentRoom.selectedCards);
+    }
+  }, [currentRoom?.selectedCards, updateSelectedCards]);
 
   // Initialize game when it starts
   useEffect(() => {
@@ -399,19 +410,54 @@ export default function ClientApp() {
             {/* Turn Indicator */}
             {currentRoom.gameState?.gamePhase === 'playing' && (
               <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-blue-800 mb-2">
-                    Current Turn
+                <div className="flex justify-between items-center">
+                  <div className="text-center flex-1">
+                    <div className="text-lg font-semibold text-blue-800 mb-2">
+                      Current Turn
+                    </div>
+                    <div className="text-2xl font-bold text-primary">
+                      {currentRoom.players?.find(p => p.id === currentRoom.gameState?.currentPlayer)?.name}
+                    </div>
+                    {!isMyTurn && (
+                      <p className="text-sm text-secondary mt-3">
+                        Wait for your turn to play
+                      </p>
+                    )}
                   </div>
-                  <div className="text-2xl font-bold text-primary">
-                    {currentRoom.players?.find(p => p.id === currentRoom.gameState?.currentPlayer)?.name}
-                  </div>
-                  {!isMyTurn && (
-                    <p className="text-sm text-secondary mt-3">
-                      Wait for your turn to play
-                    </p>
-                  )}
+                  <button
+                    onClick={() => setShowTutorial(true)}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Help</span>
+                  </button>
                 </div>
+                
+                {/* Show if current player has selected a card */}
+                {isMyTurn && selectedCard && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+                      <p className="text-sm text-yellow-800 font-medium">
+                        You have selected a card - click on the board to play it
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Show if other players have selected cards */}
+                {currentRoom.selectedCards && Object.keys(currentRoom.selectedCards).length > 0 && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                      <p className="text-sm text-green-800 font-medium">
+                        {Object.keys(currentRoom.selectedCards).length} player(s) have selected cards
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -480,6 +526,12 @@ export default function ClientApp() {
             onClose={() => setShowWinCelebration(false)}
           />
         )}
+
+        {/* Tutorial Modal */}
+        <GameTutorial
+          isOpen={showTutorial}
+          onClose={() => setShowTutorial(false)}
+        />
       </div>
       )}
     </>

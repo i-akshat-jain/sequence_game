@@ -176,3 +176,66 @@ export function wouldCreateSequence(
   const sequences = checkForSequences(tempGameState, position);
   return sequences.length > 0;
 }
+
+// Check for all sequences on the board (useful for game state validation)
+export function findAllSequences(gameState: GameState): Sequence[] {
+  const allSequences: Sequence[] = [];
+  const processedPositions = new Set<string>();
+  
+  // Check every position on the board for sequences
+  for (let row = 0; row < 10; row++) {
+    for (let col = 0; col < 10; col++) {
+      const positionKey = `${row}-${col}`;
+      if (processedPositions.has(positionKey)) continue;
+      
+      const chip = gameState.board[row][col];
+      if (!chip) continue;
+      
+      const sequences = checkForSequences(gameState, { row, col });
+      sequences.forEach(seq => {
+        // Mark all positions in this sequence as processed
+        seq.positions.forEach(pos => {
+          processedPositions.add(`${pos.row}-${pos.col}`);
+        });
+        allSequences.push(seq);
+      });
+    }
+  }
+  
+  return allSequences;
+}
+
+// Validate that all sequences are properly formed
+export function validateSequences(gameState: GameState): boolean {
+  const sequences = findAllSequences(gameState);
+  
+  for (const sequence of sequences) {
+    // Check that sequence has at least 5 positions
+    if (sequence.positions.length < 5) {
+      console.error(`Invalid sequence: ${sequence.id} has only ${sequence.positions.length} positions`);
+      return false;
+    }
+    
+    // Check that all positions are consecutive
+    const positions = sequence.positions.sort((a, b) => {
+      if (a.row !== b.row) return a.row - b.row;
+      return a.col - b.col;
+    });
+    
+    for (let i = 1; i < positions.length; i++) {
+      const prev = positions[i - 1];
+      const curr = positions[i];
+      
+      // Check if positions are consecutive (adjacent)
+      const rowDiff = Math.abs(curr.row - prev.row);
+      const colDiff = Math.abs(curr.col - prev.col);
+      
+      if (rowDiff > 1 || colDiff > 1 || (rowDiff === 1 && colDiff === 1)) {
+        console.error(`Invalid sequence: positions not consecutive in ${sequence.id}`);
+        return false;
+      }
+    }
+  }
+  
+  return true;
+}

@@ -1,6 +1,7 @@
 import { GameState, Player, Card, BoardPosition, Chip, TeamId, PlayerId, GameAction, Team } from '../types/game';
 import { canPlayCard, getValidPositions, generateDeck, shuffleDeck, dealCards, isDeadCard } from './cardUtils';
 import { checkForSequences } from './winConditions';
+import { playChipPlaceSound, playChipRemoveSound, playSequenceSound, playWinSound } from '../lib/soundEffects';
 
 // Initialize a new game
 export function initializeGame(playerCount: number): GameState {
@@ -97,10 +98,13 @@ export function playCard(
 
   // Handle two-eyed Jack or regular card placement
   if (card.rank === 'J' && card.jackType === 'two-eyed') {
-    // Two-eyed Jack: can be placed anywhere
+    // Two-eyed Jack: can be placed anywhere except free spaces
+    const positionKey = `${position.row}-${position.col}`;
+    const boardCard = boardLayout[positionKey];
+    if (boardCard && boardCard.card.isFreeSpace) return null; // Cannot place on free spaces
     if (gameState.board[position.row][position.col]) return null;
   } else {
-    // Regular card: must match board position
+    // Regular card: must match board position and cannot be placed on free spaces
     if (!canPlayCard(card, position, boardLayout)) return null;
     if (gameState.board[position.row][position.col]) return null;
   }
@@ -139,11 +143,17 @@ export function applyGameAction(gameState: GameState, action: GameAction): GameS
         
         newState.board[action.position.row][action.position.col] = chip;
         
+        // Play chip placement sound
+        playChipPlaceSound();
+        
         // Add card to player's discard pile
         player.discardPile.push(action.card);
         
         // Check for sequences
         const sequences = checkForSequences(newState, action.position);
+        if (sequences.length > 0) {
+          playSequenceSound();
+        }
         newState.sequences.push(...sequences);
         
         // Update team sequences
@@ -157,6 +167,7 @@ export function applyGameAction(gameState: GameState, action: GameAction): GameS
         if (teamSequences.length >= newState.requiredSequences) {
           newState.gamePhase = 'finished';
           newState.winner = player.team;
+          playWinSound();
         }
         
         // Draw a new card
@@ -171,6 +182,9 @@ export function applyGameAction(gameState: GameState, action: GameAction): GameS
       if (action.targetPosition) {
         // Remove opponent's chip
         newState.board[action.targetPosition.row][action.targetPosition.col] = null;
+        
+        // Play chip removal sound
+        playChipRemoveSound();
         
         // Add card to player's discard pile
         if (action.card) {

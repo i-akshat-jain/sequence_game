@@ -8,6 +8,7 @@ export interface Card {
   rank: Rank;
   isJoker?: boolean;
   jackType?: JackType;
+  isFreeSpace?: boolean; // For corner free spaces on the board
 }
 
 export type PlayerId = string; // Allow dynamic player IDs

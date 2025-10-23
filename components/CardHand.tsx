@@ -3,6 +3,7 @@
 import React from 'react';
 import { Card } from '../types/game';
 import { useGameStore } from '../hooks/useGameState';
+import { useSocket } from '../hooks/useSocket';
 
 interface CardHandProps {
   playerId: string;
@@ -11,7 +12,8 @@ interface CardHandProps {
 }
 
 const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurrentPlayer = false }) => {
-  const { players, selectedCard, selectCard, currentPlayer } = useGameStore();
+  const { players, selectedCard, selectCard, currentPlayer, selectedCards } = useGameStore();
+  const { currentRoom, selectCard: socketSelectCard, deselectCard: socketDeselectCard } = useSocket();
   
   const player = players.find(p => p.id === playerId);
   if (!player) return null;
@@ -39,12 +41,15 @@ const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurre
   const getCardClass = (card: Card) => {
     const baseClass = "w-16 h-20 border-2 rounded-lg flex flex-col items-center justify-center text-sm font-bold transition-all duration-200 shadow-sm";
     const isSelected = selectedCard?.id === card.id;
+    const isSelectedByOther = selectedCards[playerId]?.id === card.id;
     const isPlayable = isMyTurn && isCurrentPlayer;
     
     let additionalClass = "";
     
     if (isSelected) {
-      additionalClass = "border-yellow-500 bg-yellow-100 transform scale-105 shadow-lg";
+      additionalClass = "border-yellow-500 bg-yellow-100 transform scale-105 shadow-lg ring-2 ring-yellow-300";
+    } else if (isSelectedByOther) {
+      additionalClass = "border-green-500 bg-green-100 transform scale-105 shadow-lg ring-2 ring-green-300";
     } else if (isPlayable) {
       additionalClass = "border-gray-400 bg-white hover:border-blue-400 hover:bg-blue-50 hover:scale-105 hover:shadow-md cursor-pointer";
     } else {
@@ -55,8 +60,16 @@ const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurre
   };
 
   const handleCardClick = (card: Card) => {
-    if (isMyTurn && isCurrentPlayer) {
-      selectCard(selectedCard?.id === card.id ? null : card);
+    if (isMyTurn && isCurrentPlayer && currentRoom) {
+      if (selectedCard?.id === card.id) {
+        // Deselect card
+        selectCard(null);
+        socketDeselectCard(currentRoom.id);
+      } else {
+        // Select card
+        selectCard(card);
+        socketSelectCard(currentRoom.id, card);
+      }
     }
   };
 
@@ -106,6 +119,17 @@ const CardHand: React.FC<CardHandProps> = ({ playerId, isMyTurn = false, isCurre
           <p className="text-xs text-blue-600 mt-1">
             Click on a valid board position to play this card
           </p>
+        </div>
+      )}
+      
+      {!isCurrentPlayer && selectedCards[playerId] && (
+        <div className="mt-4 text-center p-4 bg-green-50 rounded-lg border border-green-200">
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <p className="text-sm text-green-800 font-medium">
+              {player.name} selected: {getCardDisplay(selectedCards[playerId])}
+            </p>
+          </div>
         </div>
       )}
     </div>

@@ -3,6 +3,33 @@ import { GameState, PlayerId, Card, BoardPosition, GameAction } from '../types/g
 import { initializeGame, applyGameAction, getPossibleMoves, handleDeadCards } from '../utils/gameLogic';
 import { createBoardLayout } from '../utils/cardUtils';
 
+// Simple fallback board layout generator
+const createFallbackBoardLayout = (): { [key: string]: { card: any; row: number; col: number } } => {
+  const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
+  const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  const boardLayout: { [key: string]: { card: any; row: number; col: number } } = {};
+  
+  for (let row = 0; row < 10; row++) {
+    for (let col = 0; col < 10; col++) {
+      const suitIndex = (row + col) % 4;
+      const rankIndex = (row * 10 + col) % 13;
+      
+      boardLayout[`${row}-${col}`] = {
+        card: {
+          id: `board-${row}-${col}`,
+          suit: suits[suitIndex],
+          rank: ranks[rankIndex],
+          isJoker: false
+        },
+        row: row,
+        col: col
+      };
+    }
+  }
+  
+  return boardLayout;
+};
+
 // Create a simple initial state that's safe for SSR
 const getInitialState = () => ({
   players: [],
@@ -17,17 +44,19 @@ const getInitialState = () => ({
   requiredSequences: 2,
   dealer: 'player1' as PlayerId,
   turnOrder: [],
-  boardLayout: {} as any,
+  boardLayout: {} as { [key: string]: { card: any; row: number; col: number } },
   selectedCard: null as Card | null,
   selectedPosition: null as BoardPosition | null,
   possibleMoves: [] as Array<{ card: Card; position: BoardPosition }>,
+  selectedCards: {} as { [playerId: string]: Card },
 });
 
 interface GameStore extends GameState {
-  boardLayout: any;
+  boardLayout: { [key: string]: { card: any; row: number; col: number } };
   selectedCard: Card | null;
   selectedPosition: BoardPosition | null;
   possibleMoves: Array<{ card: Card; position: BoardPosition }>;
+  selectedCards: { [playerId: string]: Card };
   
   // Actions
   initializeNewGame: (playerCount: number) => void;
@@ -40,6 +69,7 @@ interface GameStore extends GameState {
   resetSelection: () => void;
   resetGame: () => void;
   updateGameState: (newGameState: Partial<GameState>) => void;
+  updateSelectedCards: (selectedCards: { [playerId: string]: Card }) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -163,11 +193,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     console.log('🔄 Board layout sample in update:', Object.keys(newGameState.boardLayout || {}).slice(0, 5));
     
     set(prev => {
+      let boardLayout = newGameState.boardLayout || prev.boardLayout;
+      
+      // Fallback: Create simple board layout if server didn't provide one
+      if (!boardLayout || Object.keys(boardLayout).length === 0) {
+        console.log('🔄 Creating fallback board layout on client');
+        boardLayout = createFallbackBoardLayout();
+      }
+      
       const updatedState = {
         ...prev,
         ...newGameState,
-        // Ensure board layout is properly set from server
-        boardLayout: newGameState.boardLayout || prev.boardLayout,
+        // Ensure board layout is properly set from server or fallback
+        boardLayout: boardLayout,
         selectedCard: null,
         selectedPosition: null,
         possibleMoves: []
@@ -178,5 +216,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       
       return updatedState;
     });
+  },
+
+  // Update selected cards from other players
+  updateSelectedCards: (selectedCards: { [playerId: string]: Card }) => {
+    console.log('🎯 Updating selected cards:', selectedCards);
+    set({ selectedCards });
   }
 }));

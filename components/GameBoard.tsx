@@ -10,6 +10,7 @@ interface GameBoardProps {
 
 const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
   const { board, boardLayout, selectedPosition, possibleMoves, sequences } = useGameStore();
+  const [showFallback, setShowFallback] = React.useState(false);
   
   // Debug board layout
   console.log('🎯 GameBoard - boardLayout:', boardLayout);
@@ -25,6 +26,18 @@ const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
     console.log('🎯 GameBoard - boardLayout keys after change:', Object.keys(boardLayout || {}));
   }, [boardLayout]);
   
+  // Timeout fallback - show fallback board if server takes too long
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!boardLayout || Object.keys(boardLayout).length === 0) {
+        console.log('🎯 GameBoard - Timeout reached, showing fallback board');
+        setShowFallback(true);
+      }
+    }, 5000); // 5 second timeout
+    
+    return () => clearTimeout(timer);
+  }, [boardLayout]);
+  
   // Show loading state if no board layout from server
   if (!boardLayout || Object.keys(boardLayout).length === 0) {
     console.log('🎯 GameBoard - No board layout available, waiting for server');
@@ -34,6 +47,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p>Waiting for server to generate board layout...</p>
           <p className="text-sm mt-2">All players will see the same board</p>
+          {showFallback && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800 font-medium">Server is taking too long</p>
+              <p className="text-xs text-yellow-600 mt-1">Try refreshing the page or check your connection</p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -92,6 +111,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
       return '';
     }
     
+    // Check if this is a free space (corner)
+    if (layout.card.isFreeSpace) {
+      return '★'; // Star symbol for free spaces
+    }
+    
     const { suit, rank } = layout.card;
     const suitSymbols = {
       hearts: '♥',
@@ -108,6 +132,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ onPositionClick }) => {
     const layout = boardLayout[positionKey];
     
     if (!layout) return 'text-gray-600';
+    
+    // Free spaces have special styling
+    if (layout.card.isFreeSpace) {
+      return 'text-yellow-600 font-bold';
+    }
     
     const { suit } = layout.card;
     return suit === 'hearts' || suit === 'diamonds' ? 'text-red-600' : 'text-black';
