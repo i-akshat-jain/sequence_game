@@ -537,6 +537,3 @@ export default function ClientApp() {
     </>
   );
 }
-
-
-
